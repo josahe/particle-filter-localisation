@@ -3,6 +3,9 @@
  * Some helper functions for the 2D particle filter.
  *  Created on: Dec 13, 2016
  *      Author: Tiffany Huang
+ *
+ * Modified on: May 11, 2018
+ *          By: Joe Herd
  */
 
 #ifndef HELPER_FUNCTIONS_H_
@@ -19,11 +22,15 @@
 const double M_PI = 3.14159265358979323846;
 #endif
 
+#ifndef M_E
+const double M_E = 2.71828;
+#endif
+
 /*
  * Struct representing one position/control measurement.
  */
 struct control_s {
-	
+
 	double velocity;	// Velocity [m/s]
 	double yawrate;		// Yaw rate [rad/s]
 };
@@ -32,7 +39,7 @@ struct control_s {
  * Struct representing one ground truth position.
  */
 struct ground_truth {
-	
+
 	double x;		// Global vehicle x position [m]
 	double y;		// Global vehicle y position
 	double theta;	// Global vehicle yaw [rad]
@@ -42,11 +49,58 @@ struct ground_truth {
  * Struct representing one landmark observation measurement.
  */
 struct LandmarkObs {
-	
+
 	int id;				// Id of matching landmark in the map.
 	double x;			// Local (vehicle coordinates) x position of landmark observation [m]
 	double y;			// Local (vehicle coordinates) y position of landmark observation [m]
 };
+
+/*
+ * Position prediction functions to update x, y and theta with nonzero yawrate
+ */
+inline double update_x(double x, double v, double t, double yr, double dt) {
+	return x + v/yr*(sin(t+yr*dt) - sin(t));
+}
+inline double update_y(double y, double v, double t, double yr, double dt) {
+	return y + v/yr*(cos(t) - cos(t+yr*dt));
+}
+inline double update_theta(double t, double yr, double dt) {
+	return t + yr*dt;
+}
+
+/*
+ * Computes contribution of a landmark to particle's weight
+ * @param (x,y) x and y position of observation in map coordinates
+ * @param (ux,uy) x and y position of nearest landmark after association
+ * @param (std_x,std_y)
+ */
+inline double particle_weight(double x, double y, double ux, double uy, double std_x, double std_y) {
+  double exp = -(((pow(x-ux,2.0))/(2.0*pow(std_x,2.0))) + ((pow(y-uy,2.0))/(2.0*pow(std_y,2.0))));
+  return (1.0 / (2.0*M_PI*std_x*std_y)) * pow(M_E, exp);
+}
+
+/*
+ * Transforms a sensor observation in vehicle coordinates to an observation
+ * in map coordinates, relative to a particle
+ * @param (x,y) x and y of vehicle observation in vehicle coordinates
+ * @param (p) x, y and theta of particle observation in map coordinates
+ */
+inline double transform_x(double xv, double yv, double xp, double tp) {
+  return xv*cos(tp) - yv*sin(tp) + xp;
+}
+inline double transform_y(double xv, double yv, double yp, double tp) {
+  return xv*sin(tp) + yv*cos(tp) + yp;
+}
+
+/*
+ * Returns match based on ID search
+ * @param (x1,y1) x and y coordinates of first point
+ * @param (x2,y2) x and y coordinates of second point
+ * @output Euclidean distance between two 2D points
+ */
+inline double matching_id(double x1, double y1, double x2, double y2) {
+  return 0.0;
+}
 
 /*
  * Computes the Euclidean distance between two 2D points.
@@ -55,9 +109,12 @@ struct LandmarkObs {
  * @output Euclidean distance between two 2D points
  */
 inline double dist(double x1, double y1, double x2, double y2) {
-	return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+  return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
 }
 
+/*
+ * Get error
+ */
 inline double * getError(double gt_x, double gt_y, double gt_theta, double pf_x, double pf_y, double pf_theta) {
 	static double error[3];
 	error[0] = fabs(pf_x - gt_x);
@@ -75,14 +132,13 @@ inline double * getError(double gt_x, double gt_y, double gt_theta, double pf_x,
  * @output True if opening and reading file was successful
  */
 inline bool read_map_data(std::string filename, Map& map) {
-
 	// Get file of map:
 	std::ifstream in_file_map(filename.c_str(),std::ifstream::in);
 	// Return if we can't open the file.
 	if (!in_file_map) {
 		return false;
 	}
-	
+
 	// Declare single line of map file:
 	std::string line_map;
 
@@ -92,21 +148,21 @@ inline bool read_map_data(std::string filename, Map& map) {
 		std::istringstream iss_map(line_map);
 
 		// Declare landmark values and ID:
-		float landmark_x_f, landmark_y_f;
-		int id_i;
+		double landmark_x, landmark_y;
+		int id;
 
 		// Read data from current line to values::
-		iss_map >> landmark_x_f;
-		iss_map >> landmark_y_f;
-		iss_map >> id_i;
+		iss_map >> landmark_x;
+		iss_map >> landmark_y;
+		iss_map >> id;
 
 		// Declare single_landmark:
 		Map::single_landmark_s single_landmark_temp;
 
 		// Set values
-		single_landmark_temp.id_i = id_i;
-		single_landmark_temp.x_f  = landmark_x_f;
-		single_landmark_temp.y_f  = landmark_y_f;
+		single_landmark_temp.id = id;
+		single_landmark_temp.x  = landmark_x;
+		single_landmark_temp.y  = landmark_y;
 
 		// Add to landmark list of map:
 		map.landmark_list.push_back(single_landmark_temp);
@@ -146,7 +202,7 @@ inline bool read_control_data(std::string filename, std::vector<control_s>& posi
 		iss_pos >> velocity;
 		iss_pos >> yawrate;
 
-		
+
 		// Set values
 		meas.velocity = velocity;
 		meas.yawrate = yawrate;
@@ -182,7 +238,7 @@ inline bool read_gt_data(std::string filename, std::vector<ground_truth>& gt) {
 		double x, y, azimuth;
 
 		// Declare single ground truth:
-		ground_truth single_gt; 
+		ground_truth single_gt;
 
 		//read data from line to values:
 		iss_pos >> x;
