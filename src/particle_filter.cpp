@@ -74,7 +74,6 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
     normal_distribution<double> dist_y(particles[i].y, std_y);
     normal_distribution<double> dist_theta(particles[i].theta, std_theta);
 
-    // TODO reintroduce when weight update and resampling works
     // Add noise to motion model
     particles[i].x = dist_x(gen);
     particles[i].y = dist_y(gen);
