@@ -4,6 +4,9 @@
  * 2D particle filter class.
  *  Created on: Dec 12, 2016
  *      Author: Tiffany Huang
+ *
+ * Modified on: May 13, 2018
+ *          By: Joe Herd
  */
 
 #ifndef PARTICLE_FILTER_H_
@@ -12,15 +15,17 @@
 #include "helper_functions.h"
 
 struct Particle {
-
 	int id;
 	double x;
 	double y;
 	double theta;
 	double weight;
-	std::vector<int> associations;
-	std::vector<double> sense_x;
-	std::vector<double> sense_y;
+  std::vector<int> observations;
+	std::vector<double> o_sense_x;
+	std::vector<double> o_sense_y;
+  std::vector<int> associations;
+	std::vector<double> a_sense_x;
+	std::vector<double> a_sense_y;
 };
 
 class ParticleFilter {
@@ -74,7 +79,7 @@ public:
 	 * @param mapped Vector of landmark observations from map
 	 * @param observations Vector of landmark observations from observations
 	 */
-	std::vector<LandmarkObs> dataAssociation(std::vector<Map::single_landmark_s> mapped, std::vector<LandmarkObs> observations);
+	void dataAssociation(std::vector<Map::single_landmark_s> mapped, int idx);
 
 	/**
 	 * updateWeights Updates the weights for each particle based on the likelihood of the
@@ -97,8 +102,7 @@ public:
 	 * Set a particles list of associations, along with the associations calculated world x,y coordinates
 	 * This can be a very useful debugging tool to make sure transformations are correct and assocations correctly connected
 	 */
-	Particle SetAssociations(Particle& particle, const std::vector<int>& associations,
-		                     const std::vector<double>& sense_x, const std::vector<double>& sense_y);
+	Particle SetAssociations(Particle& particle, const std::vector<int>& associations, const std::vector<double>& sense_x, const std::vector<double>& sense_y);
 
 
 	std::string getAssociations(Particle best);

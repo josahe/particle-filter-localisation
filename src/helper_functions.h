@@ -4,7 +4,7 @@
  *  Created on: Dec 13, 2016
  *      Author: Tiffany Huang
  *
- * Modified on: May 11, 2018
+ * Modified on: May 13, 2018
  *          By: Joe Herd
  */
 
@@ -56,16 +56,26 @@ struct LandmarkObs {
 };
 
 /*
- * Position prediction functions to update x, y and theta with nonzero yawrate
+ * Position prediction functions to update x, y and theta
+ *  - (with zero or nonzero yawrate)
  */
 inline double update_x(double x, double v, double t, double yr, double dt) {
-	return x + v/yr*(sin(t+yr*dt) - sin(t));
+  if (fabs(yr) < 1e-7)
+    return x + v*dt*cos(t);
+  else
+	  return x + v/yr*(sin(t+yr*dt) - sin(t));
 }
 inline double update_y(double y, double v, double t, double yr, double dt) {
-	return y + v/yr*(cos(t) - cos(t+yr*dt));
+  if (fabs(yr) < 1e-7)
+    return y + v*dt*sin(t);
+  else
+	  return y + v/yr*(cos(t) - cos(t+yr*dt));
 }
 inline double update_theta(double t, double yr, double dt) {
-	return t + yr*dt;
+  if (fabs(yr) < 1e-7)
+    return t;
+  else
+	  return t + yr*dt;
 }
 
 /*
@@ -82,7 +92,7 @@ inline double particle_weight(double x, double y, double ux, double uy, double s
 /*
  * Transforms a sensor observation in vehicle coordinates to an observation
  * in map coordinates, relative to a particle
- * @param (x,y) x and y of vehicle observation in vehicle coordinates
+ * @param (xv,yv) x and y of vehicle observation in vehicle coordinates
  * @param (p) x, y and theta of particle observation in map coordinates
  */
 inline double transform_x(double xv, double yv, double xp, double tp) {
